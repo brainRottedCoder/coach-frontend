@@ -1,0 +1,74 @@
+# Azure Container Apps — GPU inference for ATCR FastAPI.
+#
+# Prerequisites:
+#   - ACA environment with a GPU (T4) workload profile named "gpu"
+#   - ACR image pushed as <acr>.azurecr.io/atcr-api:<tag>
+#   - Replace ALL placeholders before:
+#       az containerapp create -g rg-atcr --yaml azure/aca/containerapp.yaml
+#     or update an existing app with az containerapp update / deploy_aca.ps1
+#
+# Replica policy is fixed at 1 — BackgroundTasks are in-process.
+
+properties:
+  managedEnvironmentId: /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-atcr/providers/Microsoft.App/managedEnvironments/cae-atcr
+  configuration:
+    activeRevisionsMode: Single
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      allowInsecure: false
+    registries:
+      - server: <ACR_NAME>.azurecr.io
+        identity: system
+    secrets:
+      - name: storage-connection-string
+        value: "<AZURE_STORAGE_CONNECTION_STRING>"
+  template:
+    containers:
+      - name: atcr-api
+        image: <ACR_NAME>.azurecr.io/atcr-api:latest
+        resources:
+          cpu: 4
+          memory: 16Gi
+          # GPU attachment depends on workload profile; set via portal/CLI if YAML
+          # schema in your extension version uses nvidia.com/gpu under resources.
+        env:
+          - name: YOLO_MODEL_PATH
+            value: ./models/yolo_coach.pt
+          - name: YOLO_DEVICE
+            value: "0"
+          - name: BLOB_CONTAINER
+            value: atcr
+          - name: MODEL_BLOB_PATH
+            value: models/yolo_coach.pt
+          - name: BLOB_SYNC_MODEL_ON_STARTUP
+            value: "true"
+          - name: BLOB_PERSIST_JOB_RESULTS
+            value: "true"
+          - name: CORS_ORIGINS
+            value: https://coach-frontend-eta.vercel.app
+          - name: AZURE_STORAGE_CONNECTION_STRING
+            secretRef: storage-connection-string
+        probes:
+          - type: Liveness
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          - type: Readiness
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+    scale:
+      minReplicas: 1
+      maxReplicas: 1
+    # Workload profile name for GPU (T4) — must match environment profile
+    # workloadProfileName: gpu
+
+location: westus3
+identity:
+  type: SystemAssigned

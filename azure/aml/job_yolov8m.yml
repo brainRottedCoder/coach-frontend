@@ -1,0 +1,56 @@
+# Azure ML command job — YOLOv8m coach detector.
+#
+# Prerequisites:
+#   1. Workspace + GPU compute cluster named atcr-gpu-cluster (NC4as_T4_v3)
+#   2. Datastore/data asset for Blob datasets/detection_dataset
+#   3. Environment atcr-yolov8-train registered from environment.yml
+#
+# Submit:
+#   az ml job create -f azure/aml/job_yolov8m.yml -g rg-atcr -w mlw-atcr
+#
+# Edit placeholders: compute name, data path, code path if your layout differs.
+
+$schema: https://azuremlschemas.azureedge.net/latest/commandJob.schema.json
+display_name: atcr-yolov8m-train
+experiment_name: atcr-detector
+description: >
+  Train YOLOv8m (imgsz=960, batch=8, epochs=150) on ATCR detection_dataset.
+  Matches atcr-system/scripts/train_yolov8m_gpu.sh.
+
+# Run `az ml job create` from the repository root so this path resolves.
+code: ./atcr-system
+command: >-
+  python train_detector.py
+  --model yolov8m.pt
+  --data ${{inputs.training_data}}/data.yaml
+  --device 0
+  --imgsz 960
+  --batch 8
+  --epochs 150
+  --patience 30
+  && mkdir -p ${{outputs.model_dir}}
+  && cp models/yolo_coach.pt ${{outputs.model_dir}}/yolo_coach.pt
+  && cp -r runs/coach_detector ${{outputs.model_dir}}/runs || true
+
+environment: azureml:atcr-yolov8-train:1
+compute: azureml:atcr-gpu-cluster
+
+inputs:
+  training_data:
+    type: uri_folder
+    # Point at Blob path after registering a data asset, e.g.:
+    #   az ml data create --name atcr-detection-dataset --version 1 \
+    #     --type uri_folder --path azureml://datastores/workspaceblobstore/paths/datasets/detection_dataset
+    path: azureml:atcr-detection-dataset:1
+    mode: ro_mount
+
+outputs:
+  model_dir:
+    type: uri_folder
+    mode: rw_mount
+
+resources:
+  instance_count: 1
+
+# Prefer low-priority / spot on the compute cluster for cheaper long runs.
+# Configure on the cluster: az ml compute update --name atcr-gpu-cluster --tier low_priority

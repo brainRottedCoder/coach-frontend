@@ -1,0 +1,36 @@
+# Root-level ignores (atcr-system/ has its own .gitignore)
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+
+# Large local artifacts at repo root
+*.mp4
+*.avi
+*.mov
+*.mkv
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
+*.pdf
+
+# Python (if any root-level scripts)
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# SSH keys — never commit
+*.pem
+
+# Azure deploy outputs (may contain resource names)
+azure/deploy.env
+azure/aca/build/
+
+# Timestamped ACA build contexts
+azure/aca/build-*/

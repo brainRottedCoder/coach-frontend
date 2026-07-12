@@ -1,0 +1,22 @@
+# Docker build context = repo root (azure/aca/Dockerfile)
+.git
+**/.git
+**/venv
+**/.venv
+**/__pycache__
+**/*.pyc
+**/node_modules
+frontend
+**/*.mp4
+**/*.pem
+**/runs
+atcr-system/uploads
+atcr-system/outputs
+atcr-system/data/detection_dataset
+atcr-system/data/raw_videos
+**/.env
+**/.env.local
+**/*.canvas.tsx
+docs
+*.md
+!atcr-system/requirements-l1.txt
